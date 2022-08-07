@@ -216,12 +216,12 @@ class SnakeGameController(Node):
         # Boolean values to store the information
         # if the service for spawning turtle is available
         self.turtle_spawning_service_ready = False
-        # if the turtle was successfully body
+        # if the turtle was successfully spawned
         self.body_spawned = False
         self.body_num = 0
         self.num_eaten = 0
-        self.snake_tail = 'turtle1'
-        self.body_list = [] # only one list, more efficient
+        self.spawn_list = []
+        self.body_list = []
         self.start_position = [start_x, start_y, start_theta]
         self.body_max = 5
 
@@ -236,39 +236,56 @@ class SnakeGameController(Node):
         if self.body_list:
             # Calculate speed for the bodies to follow their parent
             for index, body in enumerate(self.body_list):
-                rclpy.spin_once(body) # update transforms
-                if body.eaten == True:
-                    # Check Transform
-                    try:
-                        trans = self.check_transform(body.id, body.parent)
-                        if trans:
-                            dist, ang_diff, theta_diff, ang = body.check_distance(trans)
-                            
-                            if body.eaten is True:
-                                # Make the body chase its position
-                                msg = body.calc_speed(dist, ang_diff, theta_diff, ang)
-                                body.publish_speed(msg)
-                                
-                    except TransformException as ex:
-                        self.get_logger().info(
-                            f'EATEN: Could not transform {body.id} to {body.return_parent()}: {ex}')
-                        return
-                    except (LookupException, ConnectivityException, ExtrapolationException):
-                        self.get_logger().info('Transform not ready')
-                        return
-        
-        # Check if we are in the previous spawn list
-                if body.eaten == False:
+                rclpy.spin_once(body)
+                # Check Transform
+                try:
                     trans = self.check_transform(body.id, body.parent)
                     if trans:
-                        dist,_,_,_ = body.check_distance(trans)
-                        if dist < 0.5:
-                                time.sleep(5)
-                                body.body_eaten(self.snake_tail)
-                                self.snake_tail = body.id # Update last position
-                                self.get_logger().info(
-                                    f'{len(self.body_list)+1} eaten: {body.id}, {body.parent} is the parent'
-                                )
+                        dist, ang_diff, theta_diff, ang = body.check_distance(trans)
+                        
+                        if body.eaten is True:
+                            # Make the body chase its position
+                            msg = body.calc_speed(dist, ang_diff, theta_diff, ang)
+                            body.publish_speed(msg)
+                            
+                except TransformException as ex:
+                    self.get_logger().info(
+                        f'EATEN: Could not transform {body.id} to {body.return_parent()}: {ex}')
+                    return
+                except (LookupException, ConnectivityException, ExtrapolationException):
+                    self.get_logger().info('Transform not ready')
+                    return
+        
+        # Check if contact with the snake (spawned have turtle1 as parent)
+        if self.spawn_list:
+            for index, spawned in enumerate(self.spawn_list):
+                
+                rclpy.spin_once(spawned)
+                trans = self.check_transform(spawned.id, spawned.parent)
+                if trans:
+                    dist,_,_,_ = spawned.check_distance(trans)
+                    # self.get_logger().info(
+                    #     f'{spawned.id}: dist = {dist} m'
+                    # )
+                    if dist < 0.5:
+                        if self.body_list:
+                            # self.get_logger().info(
+                            #     f'DEBUG EATEN TAIL IS: {self.body_list[-1].id}'
+                            # )
+                            time.sleep(5)
+                            spawned.body_eaten( self.body_list[-1].id)
+                            self.get_logger().info(
+                                f'{len(self.body_list)+1} eaten: {spawned.id}, {spawned.parent} is the parent'
+                            )
+                        else:
+                            # First body eaten
+                            spawned.body_eaten()
+                            self.get_logger().info(
+                                f'{len(self.body_list)+1} eaten: {spawned.id}'
+                            )
+                        # move the eaten body from spawn list to body list
+                        self.body_list.append(spawned)
+                        self.spawn_list.pop(index)
             
         else:
             # spawn first body or next one if there are no available
@@ -353,7 +370,7 @@ class SnakeGameController(Node):
             body_object = self.spawner.call_async(request)
             # Increase the number of bodies
             new_body = SnakeBody(body_object, self.body_num)
-            self.body_list.append(new_body)
+            self.spawn_list.append(new_body)
             self.turtle_spawning_service_ready = True
             
         else:
