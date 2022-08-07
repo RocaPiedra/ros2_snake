@@ -42,7 +42,7 @@ Launch one of those launch.py and then call a ros2 service with the name **/star
 
 ```ros2 launch snake_tf2 snake_wait_initial_pose.launch.py ``` 
 
-- [ ] Tail follow for service call with input location(follower stays slightly behind):
+- [x] Tail follow for service call with input location(follower stays slightly behind):
 
 ```ros2 launch snake_tf2 snake_fixed_frame_wait_initial_pose.launch.py ``` 
 Launch one of those launch.py and then call a ros2 service with the name **/start_turtlesim_snake** like this to spawn turtle in specific place:
