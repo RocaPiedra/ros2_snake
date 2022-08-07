@@ -31,13 +31,13 @@ class SnakeBody(Node):
         super().__init__('node_body'+ str(id))
         self.object = body_object
         self.id = 'body' + str(id)
-        self.position = 0
         self.eaten = False
         # Create velocity publisher for this body
         self.publisher = self.create_publisher(Twist, f'{self.id}/cmd_vel', 1)
         self.body_size = 0.8
         self.msg = Twist()
         self.parent = 'turtle1'
+        self.debug = False
         # Sub to your pose to obtain the transform later
         self.subscription = self.create_subscription(
             Pose,
@@ -46,8 +46,7 @@ class SnakeBody(Node):
             1)
         self.broadcaster = TransformBroadcaster(self)
         
-    def body_eaten(self, position, parent = 'turtle1'):
-        self.position = position
+    def body_eaten(self, parent = 'turtle1'):
         self.eaten = True
         self.parent = parent
     
@@ -56,7 +55,7 @@ class SnakeBody(Node):
         # Read message content and assign it to
         # corresponding tf variables
         t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = self.parent
+        t.header.frame_id = 'world'
         t.child_frame_id = self.id
 
         # Turtle only exists in 2D, thus we get x and y translation
@@ -85,8 +84,6 @@ class SnakeBody(Node):
         self.publisher.publish(msg)
         
     def check_linear_distance(self, trans):
-        # -self.position*self.body_size to take into account
-        # position in the snake
         return math.sqrt(
             abs(trans.transform.translation.x
             -self.body_size) ** 2 +
@@ -113,53 +110,55 @@ class SnakeBody(Node):
         
         if ang_diff*180/math.pi >= 15 and dist > 0.1:
             
+            scale_rotation_rate = 6
+            self.msg.angular.z = scale_rotation_rate * ang_diff
+        
+            scale_forward_speed = 1.5
+            self.msg.linear.x = scale_forward_speed * dist
+            
+            if self.debug:
+                self.get_logger().info(
+                    f'Chasing target: ')
+                self.get_logger().info(
+                    f'Linear Speed: {self.msg.linear.x}')
+                self.get_logger().info(
+                    f'Angular Speed: {self.msg.angular.z}')
+                self.get_logger().info(
+                    f'distance: {dist}')
+                self.get_logger().info(
+                    f'Angle difference:{theta_diff*180/math.pi}')
+            
+        elif ang_diff*180/math.pi < 15 and dist > 0.1:
             scale_rotation_rate = 3
             self.msg.angular.z = scale_rotation_rate * ang_diff
         
-            scale_forward_speed = 1
+            scale_forward_speed = 3
             self.msg.linear.x = scale_forward_speed * dist
-
-            self.get_logger().info(
-                f'Chasing target: ')
-            self.get_logger().info(
-                f'Linear Speed: {self.msg.linear.x}')
-            self.get_logger().info(
-                f'Angular Speed: {self.msg.angular.z}')
-            self.get_logger().info(
-                f'distance: {dist}')
-            self.get_logger().info(
-                f'Angle difference:{theta_diff*180/math.pi}')
-            
-        elif ang_diff*180/math.pi < 15 and dist > 1:
-            
-            scale_rotation_rate = 1
-            self.msg.angular.z = scale_rotation_rate * ang_diff
-        
-            scale_forward_speed = 2
-            self.msg.linear.x = scale_forward_speed * dist
-
-            self.get_logger().info(
-                f'Full Speed: ')
-            self.get_logger().info(
-                f'Linear Speed: {self.msg.linear.x}')
-            self.get_logger().info(
-                f'Angular Speed: {self.msg.angular.z}')
-            self.get_logger().info(
-                f'distance: {dist}')
-            self.get_logger().info(
-                f'Angle difference:{theta_diff*180/math.pi}')
+                
+            if self.debug:
+                self.get_logger().info(
+                    f'Full Speed: ')
+                self.get_logger().info(
+                    f'Linear Speed: {self.msg.linear.x}')
+                self.get_logger().info(
+                    f'Angular Speed: {self.msg.angular.z}')
+                self.get_logger().info(
+                    f'distance: {dist}')
+                self.get_logger().info(
+                    f'Angle difference:{theta_diff*180/math.pi}')
         else:
-            self.get_logger().info(
-                f'STOP target is close: ')
-            self.get_logger().info(
-                f'Linear Speed: {self.msg.linear.x}')
-            self.get_logger().info(
-                f'Angular Speed: {self.msg.angular.z}')
-            self.get_logger().info(
-                f'distance: {dist}')
-            self.get_logger().info(
-                f'Angle difference:{theta_diff*180/math.pi}')
-            
+            if self.debug:
+                self.get_logger().info(
+                    f'STOP target is close: ')
+                self.get_logger().info(
+                    f'Linear Speed: {self.msg.linear.x}')
+                self.get_logger().info(
+                    f'Angular Speed: {self.msg.angular.z}')
+                self.get_logger().info(
+                    f'distance: {dist}')
+                self.get_logger().info(
+                    f'Angle difference:{theta_diff*180/math.pi}')
+                
         return self.msg
 
     def calc_speed_2(self, dist, ang_diff, theta_diff, ang):
@@ -228,7 +227,7 @@ class SnakeGameController(Node):
 
         # Call on_timer function every second
         # Maybe increase the rate
-        self.timer = self.create_timer(0.1, self.on_timer)
+        self.timer = self.create_timer(0.02, self.on_timer)
         self.time_to_spawn = 15 # Seconds
         self.spawn_timer = time.time()
         
@@ -265,20 +264,24 @@ class SnakeGameController(Node):
                 trans = self.check_transform(spawned.id, spawned.parent)
                 if trans:
                     dist,_,_,_ = spawned.check_distance(trans)
-                    self.get_logger().info(
-                        f'{spawned.id}: dist = {dist} m'
-                    )
+                    # self.get_logger().info(
+                    #     f'{spawned.id}: dist = {dist} m'
+                    # )
                     if dist < 1:
                         if self.body_list:
-                            spawned.body_eaten(self, len(self.body_list)+1, parent = self.body_list[-1].id)
+                            # self.get_logger().info(
+                            #     f'DEBUG EATEN TAIL IS: {self.body_list[-1].id}'
+                            # )
+                            time.sleep(5)
+                            spawned.body_eaten( self.body_list[-1].id)
                             self.get_logger().info(
                                 f'{len(self.body_list)+1} eaten: {spawned.id}, {spawned.parent} is the parent'
                             )
                         else:
                             # First body eaten
-                            spawned.body_eaten(self, 1, parent = 'turtle1')
+                            spawned.body_eaten()
                             self.get_logger().info(
-                                f'1 eaten: {spawned.id}'
+                                f'{len(self.body_list)+1} eaten: {spawned.id}'
                             )
                         # move the eaten body from spawn list to body list
                         self.body_list.append(spawned)
@@ -286,7 +289,8 @@ class SnakeGameController(Node):
             
         else:
             # spawn first body or next one if there are no available
-            self.body_spawner()
+            if self.body_num < self.body_max:
+                self.body_spawner()
             # restart clock after spawn
             self.spawn_timer = time.time()
         
@@ -306,11 +310,9 @@ class SnakeGameController(Node):
         try:
             now = rclpy.time.Time()
             trans = self.tf_buffer.lookup_transform(
-                child,
+                str(child),
                 parent,
                 now)
-            self.get_logger().info(
-                f'Transformed from {child} to {parent}: \n{trans}')
             return trans
         except TransformException as ex:
             self.get_logger().info(
@@ -335,7 +337,7 @@ class SnakeGameController(Node):
                     f'Given starting point X: {request.x}'
                 )
             else:
-                request.x = random.uniform(1, 19)
+                request.x = random.uniform(1, 10)
                 self.get_logger().info(
                     f'Random starting point X: {request.x}'
                 )
@@ -347,7 +349,7 @@ class SnakeGameController(Node):
                     f'Given starting point Y: {request.y}'
                 )
             else:
-                request.y = random.uniform(1, 19)
+                request.y = random.uniform(1, 10)
                 self.get_logger().info(
                     f'Random starting point Y: {request.y}'
                 )
@@ -367,15 +369,13 @@ class SnakeGameController(Node):
             # Call request and spawns turtle in result
             body_object = self.spawner.call_async(request)
             # Increase the number of bodies
-            body = SnakeBody(body_object, self.body_num)
-            self.spawn_list.append(body)
+            new_body = SnakeBody(body_object, self.body_num)
+            self.spawn_list.append(new_body)
             self.turtle_spawning_service_ready = True
             
-            return body
         else:
             # Check if the service is ready
             self.get_logger().info('Body spawner is not ready')
-            return None
         
     def change_background_color(self, r=None, g=None, b=None):
         self.req = SetParameters.Request()
