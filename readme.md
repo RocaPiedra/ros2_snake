@@ -1,5 +1,5 @@
 **Environment**: Ros 2 Foxy, Python 3, Ubuntu 20.04
-Use the prepared docker environment for fast deployment and testing, you'll need a DISPLAY setup for docker, follow the instruction in *launch_docker_env.md*
+Use the prepared docker environment for fast deployment and testing, instructions available in *launch_docker_env.md*
 
 ## Packages:
 
