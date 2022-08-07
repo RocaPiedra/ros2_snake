@@ -10,6 +10,9 @@ from tf2_ros import TransformBroadcaster
 from tf2_ros.transform_listener import TransformListener
 from tf2_ros import TransformException, LookupException, ConnectivityException, ExtrapolationException
 
+from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
+from rcl_interfaces.srv import SetParameters
+
 from turtlesim.srv import Spawn
 from turtlesim.msg import Pose
 import tf_transformations
@@ -24,6 +27,9 @@ class SnakeBody(Node):
     def __init__(self, body_object, id):
         self.object = body_object
         self.id = 'body' + str(id)
+        self.node_name = 'node_'+self.id
+        super().__init__(self.node_name)
+        self
         self.position = 0
         self.eaten = False
         # Create velocity publisher for this body
@@ -45,11 +51,6 @@ class SnakeBody(Node):
         self.position = position
         self.eaten = True
         self.parent = parent
-        # self.subscription = self.create_subscription(
-        #     Pose,
-        #     f'/{parent}/pose',
-        #     self.handle_turtle_pose,
-        #     1)
         
     def check_transform(self):
         now = rclpy.time.Time()
@@ -191,11 +192,17 @@ class SnakeBody(Node):
         
 
 
-class FrameListener(Node):
+class SnakeGameController(Node):
     def __init__(self,
                 start_x=None, start_y=None, start_theta=None):
+        
         super().__init__('snake_tf2_frame_listener')
-
+        # For the background color change
+        self.color_client = self.create_client(SetParameters, '/sim/set_parameters')
+        while not self.color_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.req = None
+        
         try:
             # Declare and acquire `target_frame` parameter
             self.declare_parameter('snakemaster', 'turtle1')
@@ -205,7 +212,7 @@ class FrameListener(Node):
                 'snakemaster').get_parameter_value().string_value
         except:
             self.get_logger().info(
-                'Listener was not launched from launch file'
+                'Node was not launched from launch file'
             )
             # Unless something else is specified, always chase turtle1
             self.target_frame = 'turtle1'
@@ -344,19 +351,42 @@ class FrameListener(Node):
             self.get_logger().info('Body spawner is not ready')
             return None
         
-            
-class ChangeBackgroundColor(Node):
-    def __init__(self):
-        super().__init__('minimal_param_node')
-        timer_period = 2  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+    def change_background_color(self, r=None, g=None, b=None):
+        self.req = SetParameters.Request()
 
-        self.declare_parameter('my_parameter', 'world')
+        param = Parameter()
+        param.name = "background_r"
+        param.value.type = ParameterType.PARAMETER_INTEGER
+        if r:
+            param.value.integer_value = r
+        else:
+            param.value.integer_value = random.randint(0,255)
+        self.req.parameters.append(param)
+
+        param = Parameter()
+        param.name = "background_g"
+        param.value.type = ParameterType.PARAMETER_INTEGER
+        if g:
+            param.value.integer_value = g
+        else:
+            param.value.integer_value = random.randint(0,255)
+        self.req.parameters.append(param)
         
+        param = Parameter()
+        param.name = "background_b"
+        param.value.type = ParameterType.PARAMETER_INTEGER
+        if b:
+            param.value.integer_value = b
+        else:
+            param.value.integer_value = random.randint(0,255)
+        self.req.parameters.append(param)
+
+        self.future = self.color_client.call_async(self.req)
+        self.get_logger().info('client request sent')
         
 def main():
     rclpy.init()
-    node = FrameListener()
+    node = SnakeGameController()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

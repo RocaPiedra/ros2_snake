@@ -28,8 +28,5 @@ def generate_launch_description():
             package='snake_tf2',
             executable='snake_tf2_game_controller',
             name='snake_game',
-            parameters=[
-                {'snakemaster': 'turtle1'}
-            ]
         ),
     ])
