@@ -12,7 +12,7 @@ class FixedFrameBroadcaster(Node):
         super().__init__('snake_tail_frame_tf2_broadcaster')
         self.br = TransformBroadcaster(self)
         self.timer = self.create_timer(0.1, self.broadcast_timer_callback)
-        self.parent = 'turtle1' # Parent is always the head of the snake?
+        self.parent = 'turtle1' 
         self.child = child
         self.location = int(child.replace("tail",""))
         self.get_logger().info(f'the next location is number {self.location}')

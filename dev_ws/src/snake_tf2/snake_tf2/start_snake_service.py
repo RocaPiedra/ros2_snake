@@ -5,8 +5,6 @@ from snake_tf2.snake_tf2_listener import FrameListener
 import rclpy
 from rclpy.node import Node
 
-import math
-
 class StartSnakeService(Node):
 
     def __init__(self):

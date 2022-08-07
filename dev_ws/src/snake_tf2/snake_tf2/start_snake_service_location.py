@@ -19,10 +19,11 @@ class StartSnakeServiceLocation(Node):
         response.success= True
         self.get_logger().info(
             'Start located snake service CALLED -> Starting normal execution')
-        self.get_logger().info(
-            f'request: X={request.pos_x} | Y={request.pos_y} | angle={request.angle*360/2/math.pi} | response: {response}'
-            )
+        
         if self.launch_listener is True:
+            self.get_logger().info(
+                f'request: X={request.pos_x} | Y={request.pos_y} | angle={request.angle*360/2/math.pi} | response: {response}'
+                )
             if request.pos_x and request.pos_y and request.angle:
                 self.get_logger().info(
                     'Sending service request for deployment ->->->'
@@ -41,7 +42,7 @@ class StartSnakeServiceLocation(Node):
 def main(args=None):
     rclpy.init(args=args)
     
-    location_service = StartSnakeServiceLocation(True)
+    location_service = StartSnakeServiceLocation()
 
     rclpy.spin_once(location_service)
 
