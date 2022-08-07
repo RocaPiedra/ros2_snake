@@ -18,7 +18,7 @@ def generate_launch_description():
         ),
         Node(
             package='snake_tf2',
-            executable='location_snake_tf2_broadcaster',
+            executable='snake_tf2_broadcaster',
             name='snake_master',
             parameters=[
                 {'snakename': 'turtle1'}

@@ -21,44 +21,35 @@ from geometry_msgs.msg import TransformStamped
 import random
 import time
 
-
+# Node type for the body (one per body)
+# Handles body location, transforms and state
+# Broadcasts the transforms
 class SnakeBody(Node):
     
     def __init__(self, body_object, id):
+        # Dynamic node name constructor to avoid spawning nodes with the same name
+        super().__init__('node_body'+ str(id))
         self.object = body_object
         self.id = 'body' + str(id)
-        self.node_name = 'node_'+self.id
-        super().__init__(self.node_name)
-        self
         self.position = 0
         self.eaten = False
         # Create velocity publisher for this body
         self.publisher = self.create_publisher(Twist, f'{self.id}/cmd_vel', 1)
         self.body_size = 0.8
         self.msg = Twist()
-        self.parent = None
-        # To check the child-parent transform
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-        # self.subscription = self.create_subscription(
-        #     Pose,
-        #     f'/turtle1/pose',
-        #     self.handle_turtle_pose,
-        #     1)
+        self.parent = 'turtle1'
+        # Sub to your pose to obtain the transform later
+        self.subscription = self.create_subscription(
+            Pose,
+            f'/{self.id}/pose',
+            self.handle_turtle_pose,
+            1)
         self.broadcaster = TransformBroadcaster(self)
         
     def body_eaten(self, position, parent = 'turtle1'):
         self.position = position
         self.eaten = True
         self.parent = parent
-        
-    def check_transform(self):
-        now = rclpy.time.Time()
-        trans = self.tf_buffer.lookup_transform(
-            self.id,
-            self.parent,
-            now)
-        return trans
     
     def handle_turtle_pose(self, msg):
         t = TransformStamped()
@@ -82,7 +73,9 @@ class SnakeBody(Node):
         t.transform.rotation.y = q[1]
         t.transform.rotation.z = q[2]
         t.transform.rotation.w = q[3]
-
+        # self.get_logger().info(
+        #     f'Sending Transform \n{t}'
+        # )
         # Send the transformation
         self.broadcaster.sendTransform(t)
         
@@ -191,7 +184,7 @@ class SnakeBody(Node):
         return self.parent
         
 
-
+# Acts as game controller and transform listener
 class SnakeGameController(Node):
     def __init__(self,
                 start_x=None, start_y=None, start_theta=None):
@@ -216,6 +209,8 @@ class SnakeGameController(Node):
             )
             # Unless something else is specified, always chase turtle1
             self.target_frame = 'turtle1'
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Create a client to spawn a turtle
         self.spawner = self.create_client(Spawn, 'spawn')
@@ -229,6 +224,7 @@ class SnakeGameController(Node):
         self.spawn_list = []
         self.body_list = []
         self.start_position = [start_x, start_y, start_theta]
+        self.body_max = 5
 
         # Call on_timer function every second
         # Maybe increase the rate
@@ -241,15 +237,17 @@ class SnakeGameController(Node):
         if self.body_list:
             # Calculate speed for the bodies to follow their parent
             for index, body in enumerate(self.body_list):
+                rclpy.spin_once(body)
                 # Check Transform
                 try:
-                    trans = body.check_transform()
-                    dist, ang_diff, theta_diff, ang = body.check_distance(trans)
+                    trans = self.check_transform(body.id, body.parent)
+                    if trans:
+                        dist, ang_diff, theta_diff, ang = body.check_distance(trans)
                         
-                    if body.eaten is True:
-                        # Make the body chase its position
-                        msg = body.calc_speed(dist, ang_diff, theta_diff, ang)
-                        body.publish_speed(msg)
+                        if body.eaten is True:
+                            # Make the body chase its position
+                            msg = body.calc_speed(dist, ang_diff, theta_diff, ang)
+                            body.publish_speed(msg)
                             
                 except TransformException as ex:
                     self.get_logger().info(
@@ -262,24 +260,30 @@ class SnakeGameController(Node):
         # Check if contact with the snake (spawned have turtle1 as parent)
         if self.spawn_list:
             for index, spawned in enumerate(self.spawn_list):
-                trans = spawned.check_transform()
-                dist = spawned.check_distance(trans)
-                if dist < 1:
-                    if self.body_list:
-                        spawned.body_eaten(self, len(self.body_list)+1, parent = self.body_list[-1].id)
-                        self.get_logger().info(
-                            f'{len(self.body_list)+1} eaten: {spawned.id}, {spawned.parent} is the parent'
-                        )
-                    else:
-                        # First body eaten
-                        spawned.body_eaten(self, 1, parent = 'turtle1')
-                        self.get_logger().info(
-                            f'1 eaten: {spawned.id}'
-                        )
-                    # move the eaten body from spawn list to body list
-                    self.body_list.append(spawned)
-                    self.spawn_list.pop(index)
-        
+                
+                rclpy.spin_once(spawned)
+                trans = self.check_transform(spawned.id, spawned.parent)
+                if trans:
+                    dist,_,_,_ = spawned.check_distance(trans)
+                    self.get_logger().info(
+                        f'{spawned.id}: dist = {dist} m'
+                    )
+                    if dist < 1:
+                        if self.body_list:
+                            spawned.body_eaten(self, len(self.body_list)+1, parent = self.body_list[-1].id)
+                            self.get_logger().info(
+                                f'{len(self.body_list)+1} eaten: {spawned.id}, {spawned.parent} is the parent'
+                            )
+                        else:
+                            # First body eaten
+                            spawned.body_eaten(self, 1, parent = 'turtle1')
+                            self.get_logger().info(
+                                f'1 eaten: {spawned.id}'
+                            )
+                        # move the eaten body from spawn list to body list
+                        self.body_list.append(spawned)
+                        self.spawn_list.pop(index)
+            
         else:
             # spawn first body or next one if there are no available
             self.body_spawner()
@@ -290,10 +294,32 @@ class SnakeGameController(Node):
         time_elapsed = time.time() - self.spawn_timer    
         if time_elapsed > self.time_to_spawn:
             #Spawn a body and added to spawn list
-            self.body_spawner()
+            if self.body_num < self.body_max:
+                self.body_spawner()
+            else:
+                self.get_logger().info(
+                    '\nMAX SPAWNS REACHED'
+                )
             self.spawn_timer = time.time()
                 
-
+    def check_transform(self, parent, child):
+        try:
+            now = rclpy.time.Time()
+            trans = self.tf_buffer.lookup_transform(
+                child,
+                parent,
+                now)
+            self.get_logger().info(
+                f'Transformed from {child} to {parent}: \n{trans}')
+            return trans
+        except TransformException as ex:
+            self.get_logger().info(
+                f'Could not transform {child} to {parent}: {ex}')
+            return
+        except (LookupException, ConnectivityException, ExtrapolationException):
+            self.get_logger().info('transform not ready')
+            return None
+        
     def body_spawner(self):
         if self.spawner.service_is_ready():
             # Initialize request with turtle name and coordinates
