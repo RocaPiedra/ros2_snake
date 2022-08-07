@@ -47,8 +47,7 @@ class FramePublisher(Node):
             f'/{self.turtlename}/pose',
             self.handle_turtle_pose,
             1)
-        self.subscription
-
+        
     def handle_turtle_pose(self, msg):
         t = TransformStamped()
 

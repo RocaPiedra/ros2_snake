@@ -29,7 +29,12 @@ setup(
             'start_snake_service = snake_tf2.start_snake_service:main',
             'start_snake_tf2_broadcaster = snake_tf2.start_snake_tf2_broadcaster:main',
             'start_snake_tf2_listener = snake_tf2.start_snake_tf2_listener:main',
-            'start_snake_tf2_tail_frame_broadcaster = snake.tf2.start_snake_tf2_tail_frame_broadcaster:main',
+            'start_snake_tf2_tail_frame_broadcaster = snake_tf2.start_snake_tf2_tail_frame_broadcaster:main',
+            'start_snake_service_location = snake_tf2.start_snake_service_location:main',
+            'location_snake_tf2_broadcaster = snake_tf2.location_snake_tf2_broadcaster:main',
+            'location_snake_tf2_listener = snake_tf2.location_snake_tf2_listener:main',
+            'location_snake_tf2_tail_frame_broadcaster = snake_tf2.location_snake_tf2_tail_frame_broadcaster:main',
+            'snake_tf2_game_controller = snake_tf2.snake_tf2_game_controller:main',
         ],
     },
 )

@@ -43,21 +43,16 @@ class FrameListener(Node):
         # if the turtle was successfully spawned
         self.body_spawned = False
         self.body_name = 'body1'
-        self.body_list = []
-        self.body_list.append(self.body_name)
-        self.turtle_object_list = []
         self.start_position = [start_x, start_y, start_theta]
         # Create turtle2 velocity publisher
         self.publisher = self.create_publisher(Twist, f'{self.body_name}/cmd_vel', 1)
 
         # Call on_timer function every second
-        self.timer = self.create_timer(1.0, self.on_timer)
+        # Maybe increase the rate
+        self.timer = self.create_timer(0.01, self.on_timer)
         
         # Variable controlling if the snake has eaten the body
-        self.body_eaten = True # Must be set to False
-    
-    def new_body(self):
-        new_num_body = len(self.body_list)
+        self.body_eaten = False # Must be set to False
     
     def on_timer(self):
         # Store frame names in variables that will be used to
@@ -117,10 +112,10 @@ class FrameListener(Node):
                 
                 if ang_diff*180/math.pi >= 15 and dist > 0.1:
                     
-                    scale_rotation_rate = 3
+                    scale_rotation_rate = 6
                     msg.angular.z = scale_rotation_rate * ang_diff
                 
-                    scale_forward_speed = 1
+                    scale_forward_speed = 1.5
                     msg.linear.x = scale_forward_speed * dist
 
                     self.get_logger().info(
@@ -134,12 +129,12 @@ class FrameListener(Node):
                     self.get_logger().info(
                         f'Angle difference:{theta_diff*180/math.pi}')
                     
-                elif ang_diff*180/math.pi < 15 and dist > 1:
+                elif ang_diff*180/math.pi < 15 and dist > 0.1:
                     
-                    scale_rotation_rate = 1
+                    scale_rotation_rate = 3
                     msg.angular.z = scale_rotation_rate * ang_diff
                 
-                    scale_forward_speed = 2
+                    scale_forward_speed = 3
                     msg.linear.x = scale_forward_speed * dist
 
                     self.get_logger().info(
@@ -219,7 +214,7 @@ class FrameListener(Node):
                     f'Given starting point X: {request.x}'
                 )
             else:
-                request.x = random.uniform(0, 10)
+                request.x = random.uniform(1, 19)
                 self.get_logger().info(
                     f'Random starting point X: {request.x}'
                 )
@@ -231,7 +226,7 @@ class FrameListener(Node):
                     f'Given starting point Y: {request.y}'
                 )
             else:
-                request.y = random.uniform(0, 10)
+                request.y = random.uniform(1, 19)
                 self.get_logger().info(
                     f'Random starting point Y: {request.y}'
                 )
@@ -243,7 +238,7 @@ class FrameListener(Node):
                     f'Given starting Angle: {request.theta*180/math.pi}'
                 )
             else:
-                request.x = random.uniform(-2*3.14, 2*3.14)
+                request.theta = random.uniform(-2*3.14, 2*3.14)
                 self.get_logger().info(
                     f'Random starting Angle: {request.theta*180/math.pi}'
                 )
@@ -253,7 +248,6 @@ class FrameListener(Node):
             
             print(dir(result)) # debug
             
-            self.turtle_object_list.append(result)
             self.turtle_spawning_service_ready = True
             return result
         else:

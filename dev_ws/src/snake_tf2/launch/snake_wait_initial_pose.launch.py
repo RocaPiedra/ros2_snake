@@ -18,7 +18,7 @@ def generate_launch_description():
         ),
         Node(
             package='snake_tf2',
-            executable='start_snake_tf2_broadcaster',
+            executable='location_snake_tf2_broadcaster',
             name='snake_master',
             parameters=[
                 {'snakename': 'turtle1'}
@@ -26,7 +26,7 @@ def generate_launch_description():
         ),
         Node(
             package='snake_tf2',
-            executable='start_snake_tf2_broadcaster',
+            executable='location_snake_tf2_broadcaster',
             name='snake_body1',
             parameters=[
                 {'snakename': 'body1'}
@@ -34,7 +34,10 @@ def generate_launch_description():
         ),
         Node(
             package='snake_tf2',
-            executable='start_snake_service_location',
-            name='service_location_starter',
+            executable='location_snake_tf2_listener',
+            name='listener',
+            parameters=[
+                {'target_frame': LaunchConfiguration('target_frame')}
+            ]
         ),
     ])
