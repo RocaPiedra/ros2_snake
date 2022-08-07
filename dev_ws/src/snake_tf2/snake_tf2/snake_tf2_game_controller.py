@@ -110,10 +110,10 @@ class SnakeBody(Node):
         
         if ang_diff*180/math.pi >= 15 and dist > 0.1:
             
-            scale_rotation_rate = 6
+            scale_rotation_rate = 2 #6
             self.msg.angular.z = scale_rotation_rate * ang_diff
         
-            scale_forward_speed = 1.5
+            scale_forward_speed = 0.5 #1.5
             self.msg.linear.x = scale_forward_speed * dist
             
             if self.debug:
@@ -129,10 +129,10 @@ class SnakeBody(Node):
                     f'Angle difference:{theta_diff*180/math.pi}')
             
         elif ang_diff*180/math.pi < 15 and dist > 0.1:
-            scale_rotation_rate = 3
+            scale_rotation_rate = 1 #3
             self.msg.angular.z = scale_rotation_rate * ang_diff
         
-            scale_forward_speed = 3
+            scale_forward_speed = 1 #3
             self.msg.linear.x = scale_forward_speed * dist
                 
             if self.debug:
@@ -227,7 +227,7 @@ class SnakeGameController(Node):
 
         # Call on_timer function every second
         # Maybe increase the rate
-        self.timer = self.create_timer(0.02, self.on_timer)
+        self.timer = self.create_timer(0.05, self.on_timer)
         self.time_to_spawn = 15 # Seconds
         self.spawn_timer = time.time()
         
@@ -267,7 +267,7 @@ class SnakeGameController(Node):
                     # self.get_logger().info(
                     #     f'{spawned.id}: dist = {dist} m'
                     # )
-                    if dist < 1:
+                    if dist < 0.5:
                         if self.body_list:
                             # self.get_logger().info(
                             #     f'DEBUG EATEN TAIL IS: {self.body_list[-1].id}'

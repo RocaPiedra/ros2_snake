@@ -61,7 +61,13 @@ Launch one of those launch.py and then call a ros2 service with the name **/star
 ```ros2 service call /start_turtlesim_snake snake_interfaces/srv/TurtlePos "{pos_x: 1, pos_y: 1, angle: 1}"```
 
 ##### Snake Game
+Snake game needs heavy debugging. The multinode modular approach is not capable of handing all the nodes in one core process and the speed commands are too slow/irregular to move the turtles correctly.
+The dynamic spawn works fine and creates complex nodes but from a single computer perspective it needs refinement to achieve proper performance.
+A simpler approach just accessing the data as a service would probably work better.
 
+```
+ros2 launch snake_tf2 game_of_snake.launch.py 
+```
 ##### Other Functionalities
 - Change the simulation background color when the turtle is eaten. Good example on how to set parameters from other packages using their own services with a minimal client that belongs to the listener class.
   
