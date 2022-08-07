@@ -4,6 +4,8 @@ from geometry_msgs.msg import Twist
 
 import rclpy
 from rclpy.node import Node
+from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
+from rcl_interfaces.srv import SetParameters
 
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
@@ -12,14 +14,19 @@ from tf2_ros import LookupException, ConnectivityException, ExtrapolationExcepti
 
 from turtlesim.srv import Spawn
 
-import random
+import random, time
 
 class FrameListener(Node):
 
     def __init__(self,
                 start_x=None, start_y=None, start_theta=None):
         super().__init__('snake_tf2_frame_listener')
-
+        # For the background color change
+        self.color_client = self.create_client(SetParameters, '/sim/set_parameters')
+        while not self.color_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.req = None
+        
         try:
             # Declare and acquire `target_frame` parameter
             self.declare_parameter('target_frame', 'turtle1')
@@ -79,36 +86,15 @@ class FrameListener(Node):
                     return
 
                 msg = Twist()
-                theta_diff = abs(1 - abs(trans.transform.rotation.w))
+                # Diference between both Theta values
+                # theta_diff = abs(1 - abs(trans.transform.rotation.w))
                 ang_diff = math.atan2(
                     trans.transform.translation.y,
                     trans.transform.translation.x)
-                ang = math.atan2(math.sin(trans.transform.rotation.w),
-                                math.cos(trans.transform.rotation.w),)
-                if(ang <= -3.14) or (ang > 3.14):
-                    ang = ang / math.pi
-
+                
                 dist = math.sqrt(
                     abs(trans.transform.translation.x) ** 2 +
                     abs(trans.transform.translation.y) ** 2)
-                
-                if(ang <= -3.14) or (ang > 3.14):
-                    ang = ang / (2*math.pi)
-            
-                # if(dist < 0.8):
-                #     msg.linear.x = 0 
-                #     msg.angular.z = 0
-                #     self.get_logger().info(
-                #         f'Chasing target: Linear Speed: {msg.linear.x} || \
-                #         Angular Speed: {msg.angular.z}\n \
-                #         distance: {dist} || Angle difference: {ang*(2*math.pi)}')
-                # else:
-                #     msg.linear.x = 2.5 * dist                
-                #     msg.angular.z = 7 * ang
-                #     self.get_logger().info(
-                #         f'Chasing target: Linear Speed: {msg.linear.x} || \
-                #         Angular Speed: {msg.angular.z}\n \
-                #         distance: {dist} || Angle difference: {ang*(2*math.pi)}')
                 
                 if ang_diff*180/math.pi >= 15 and dist > 0.1:
                     
@@ -127,7 +113,7 @@ class FrameListener(Node):
                     self.get_logger().info(
                         f'distance: {dist}')
                     self.get_logger().info(
-                        f'Angle difference:{theta_diff*180/math.pi}')
+                        f'Angle difference:{ang_diff*180/math.pi}')
                     
                 elif ang_diff*180/math.pi < 15 and dist > 0.1:
                     
@@ -146,7 +132,7 @@ class FrameListener(Node):
                     self.get_logger().info(
                         f'distance: {dist}')
                     self.get_logger().info(
-                        f'Angle difference:{theta_diff*180/math.pi}')
+                        f'Angle difference:{ang_diff*180/math.pi}')
                 else:
                     self.get_logger().info(
                         f'STOP target is close: ')
@@ -157,7 +143,7 @@ class FrameListener(Node):
                     self.get_logger().info(
                         f'distance: {dist}')
                     self.get_logger().info(
-                        f'Angle difference:{theta_diff*180/math.pi}')
+                        f'Angle difference:{ang_diff*180/math.pi}')
                 
                 self.publisher.publish(msg)
                 
@@ -188,6 +174,7 @@ class FrameListener(Node):
                         self.body_eaten = True
                         self.get_logger().info
                         (f'Piece {self.body_name} EATEN, ÑAM ÑAM')
+                        self.change_background_color()
                         
                 except TransformException as ex:
                     self.get_logger().info(
@@ -255,14 +242,38 @@ class FrameListener(Node):
             self.get_logger().info('Body spawner is not ready')
             return None
         
-            
-class ChangeBackgroundColor(Node):
-    def __init__(self):
-        super().__init__('minimal_param_node')
-        timer_period = 2  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+    def change_background_color(self, r=None, g=None, b=None):
+        self.req = SetParameters.Request()
 
-        self.declare_parameter('my_parameter', 'world')
+        param = Parameter()
+        param.name = "background_r"
+        param.value.type = ParameterType.PARAMETER_INTEGER
+        if r:
+            param.value.integer_value = r
+        else:
+            param.value.integer_value = random.randint(0,255)
+        self.req.parameters.append(param)
+
+        param = Parameter()
+        param.name = "background_g"
+        param.value.type = ParameterType.PARAMETER_INTEGER
+        if g:
+            param.value.integer_value = g
+        else:
+            param.value.integer_value = random.randint(0,255)
+        self.req.parameters.append(param)
+        
+        param = Parameter()
+        param.name = "background_b"
+        param.value.type = ParameterType.PARAMETER_INTEGER
+        if b:
+            param.value.integer_value = b
+        else:
+            param.value.integer_value = random.randint(0,255)
+        self.req.parameters.append(param)
+
+        self.future = self.color_client.call_async(self.req)
+        self.get_logger().info('client request sent')
         
         
 def main():
