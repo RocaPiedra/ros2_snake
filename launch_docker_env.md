@@ -1,4 +1,4 @@
-first build the image from the acciona folder:
+first build the image from the ros2snake folder:
 ```
 docker build -t ros2snake/foxy:1.0 .
 ```
@@ -14,3 +14,4 @@ and use the image to launch an interactive shell:
 ```
 docker exec -it <container_id> bash
 ```
+you can launch as many shells as you want with that command
